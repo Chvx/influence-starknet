@@ -304,7 +304,7 @@ mod tests {
     // Benchmark: 56k steps for start + finish (280 gas)
 
     #[test]
-    #[available_gas(46000000)]
+    #[available_gas(49000000)]
     fn test_process_products() {
         helpers::init();
         mocks::constants();
@@ -354,13 +354,13 @@ mod tests {
             process: process_types::AMMONIA_CATALYTIC_CRACKING,
             target_output: product_types::HYDROGEN,
             recipes: FixedTrait::new_unscaled(1000, false),
-            origin: warehouse,
-            origin_slot: 2,
+            origins: array![warehouse].span(),
+            origin_slots: array![2].span(),
             destination: warehouse,
             destination_slot: 2,
             caller_crew: crew,
             context: mocks::context('PLAYER')
-        ); // 67.6k steps
+        ); // ? steps - was 67.6k before switching to multi-inputs
 
         // Check inventory
         inventory_data = components::get::<Inventory>(inventory_path).unwrap();

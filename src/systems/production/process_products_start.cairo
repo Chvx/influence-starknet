@@ -1,7 +1,7 @@
 #[starknet::contract]
 mod ProcessProductsStart {
     use array::{ArrayTrait, SpanTrait};
-    use cmp::max;
+    use cmp::{min, max};
     use option::OptionTrait;
     use starknet::contract_address::ContractAddress;
     use traits::{Into, TryInto};
@@ -52,10 +52,31 @@ mod ProcessProductsStart {
         caller: ContractAddress
     }
 
+    #[derive(Copy, Drop, Serde)]
+    struct InputsWithInventories {
+        inputs: Span<InventoryItem>,
+        origin: Entity,
+        origin_slot: u64,
+    }
+
+    #[derive(Copy, Drop, starknet::Event)]
+    struct MaterialProcessingStartedV2 {
+        processor: Entity,
+        processor_slot: u64,
+        process: u64,
+        inputs: Span<InputsWithInventories>,
+        outputs: Span<InventoryItem>,
+        destination: Entity,
+        destination_slot: u64,
+        finish_time: u64,
+        caller_crew: Entity,
+        caller: ContractAddress
+    }
+
     #[event]
     #[derive(Copy, Drop, starknet::Event)]
     enum Event {
-        MaterialProcessingStartedV1: MaterialProcessingStartedV1
+        MaterialProcessingStartedV2: MaterialProcessingStartedV2
     }
 
     #[external(v0)]
@@ -66,13 +87,16 @@ mod ProcessProductsStart {
         process: u64,
         target_output: u64, // output product to focus
         recipes: Fixed, // # of recipes to process (positive Fixed value)
-        origin: Entity,
-        origin_slot: u64,
+        origins: Span<Entity>,
+        origin_slots: Span<u64>,
         destination: Entity,
         destination_slot: u64,
         caller_crew: Entity,
         context: Context
     ) {
+        // Validate origin parameters
+        assert(origin_slots.len() == origins.len(), 'invalid origin slots count');
+
         // Check that crew is delegated, and ready
         let mut crew_details = CrewDetailsTrait::new(caller_crew);
         crew_details.assert_all_ready_within(context.caller, context.now);
@@ -103,26 +127,76 @@ mod ProcessProductsStart {
             process_config.setup_time, process_config.recipe_time, process_config.batched, recipes, process_eff
         );
 
-        // Check for permissions on origin and remove products
-        if origin.label == entities::BUILDING {
-            components::get::<Building>(origin.path()).expect(errors::BUILDING_NOT_FOUND).assert_operational();
-        } else if origin.label == entities::SHIP {
-            components::get::<Ship>(origin.path()).expect(errors::SHIP_NOT_FOUND).assert_stationary();
-            let location = components::get::<Location>(origin.path()).expect(errors::LOCATION_NOT_FOUND);
+        // Loop on origin inventories
+        let mut remaining = inputs;
+        let mut consumed: Array<InputsWithInventories> = Default::default();
+        let mut tmp : Array<InventoryItem> = Default::default(); // variable ownership and lifetime shenanigans
+        let mut o = 0;
+        loop {
+            if remaining.len() == 0 { break; }
+            if o >= origins.len() { break; }
+            let origin = *origins.at(o);
+            let origin_slot = *origin_slots.at(o);
 
-            match components::get::<Building>(location.location.path()) {
-                Option::Some(building_data) => building_data.assert_operational(),
-                Option::None(_) => ()
+            // Check for permissions on origin
+            if origin.label == entities::BUILDING {
+                components::get::<Building>(origin.path()).expect(errors::BUILDING_NOT_FOUND).assert_operational();
+            } else if origin.label == entities::SHIP {
+                components::get::<Ship>(origin.path()).expect(errors::SHIP_NOT_FOUND).assert_stationary();
+                let location = components::get::<Location>(origin.path()).expect(errors::LOCATION_NOT_FOUND);
+
+                match components::get::<Building>(location.location.path()) {
+                    Option::Some(building_data) => building_data.assert_operational(),
+                    Option::None(_) => ()
+                };
+            }
+
+            caller_crew.assert_can(origin, permissions::REMOVE_PRODUCTS);
+
+            let mut origin_path: Array<felt252> = Default::default();
+            origin_path.append(origin.into());
+            origin_path.append(origin_slot.into());
+            let mut origin_data = components::get::<Inventory>(origin_path.span()).expect(errors::INVENTORY_NOT_FOUND);
+
+            // Remove as much as possible of the input products from current origin
+            let mut to_remove: Array<InventoryItem> = Default::default();
+            let mut leftovers: Array<InventoryItem> = Default::default();
+            let mut r = 0;
+            loop {
+                if r >= remaining.len() { break; }
+                let recipe_item = *remaining.at(r);
+
+                let mut i = 0;
+                let inv_contents = origin_data.contents;
+                loop {
+                    if i >= inv_contents.len() {
+                        leftovers.append(InventoryItem { product: recipe_item.product, amount: recipe_item.amount });
+                        break;
+                    }
+
+                    let inv_item = *inv_contents.at(i);
+                    if inv_item.product == recipe_item.product {
+                        to_remove.append(InventoryItem { product: recipe_item.product, amount: min(inv_item.amount, recipe_item.amount) });
+                        if inv_item.amount < recipe_item.amount {
+                            leftovers.append(InventoryItem { product: recipe_item.product, amount: recipe_item.amount - inv_item.amount });
+                        }
+                        break;
+                    }
+
+                    i += 1;
+                };
+
+                r += 1;
             };
-        }
+            consumed.append(InputsWithInventories { inputs: to_remove.span(), origin: origin, origin_slot: origin_slot });
+            inventory::remove(ref origin_data, to_remove.span());
+            components::set::<Inventory>(origin_path.span(), origin_data);
+            tmp = leftovers;
+            remaining = tmp.span();
 
-        caller_crew.assert_can(origin, permissions::REMOVE_PRODUCTS);
-        let mut origin_path: Array<felt252> = Default::default();
-        origin_path.append(origin.into());
-        origin_path.append(origin_slot.into());
-        let mut origin_data = components::get::<Inventory>(origin_path.span()).expect(errors::INVENTORY_NOT_FOUND);
-        inventory::remove(ref origin_data, inputs);
-        components::set::<Inventory>(origin_path.span(), origin_data);
+            o += 1;
+        };
+        assert(remaining.len() == 0, 'not enough products in origins');
 
         // Check that the destination exists and is ready to receive
         if destination.label == entities::BUILDING {
@@ -152,24 +226,38 @@ mod ProcessProductsStart {
         inventory::reserve(ref destination_data, outputs, mass_eff, volume_eff);
         components::set::<Inventory>(destination_path.span(), destination_data);
 
-        // Check that all buildings are present on the same asteroid
-        let (origin_ast, origin_lot) = origin.to_position();
-        let (process_ast, process_lot) = processor.to_position();
-        let (dest_ast, dest_lot) = destination.to_position();
-        assert((origin_ast == dest_ast) && (origin_ast == process_ast), errors::DIFFERENT_ASTEROIDS);
-        assert((origin_lot != 0) && (dest_lot != 0) && (process_lot != 0), errors::IN_ORBIT);
-
-        // Calculate the hopper transfer times
+        // Check that all buildings are present on the same asteroid and calculate hopper transfer times
         let hopper_eff = crew_details.bonus(modifier_types::HOPPER_TRANSPORT_TIME, context.now);
         let dist_eff = crew_details.bonus(modifier_types::FREE_TRANSPORT_DISTANCE, context.now);
-        let ast = components::get::<Celestial>(EntityTrait::new(entities::ASTEROID, origin_ast).path())
+
+        // processor
+        let (process_ast, process_lot) = processor.to_position();
+        let ast = components::get::<Celestial>(EntityTrait::new(entities::ASTEROID, process_ast).path())
             .expect(errors::CELESTIAL_NOT_FOUND);
 
-        let origin_to_processor = position::hopper_travel_time(origin_lot, dest_lot, ast.radius, hopper_eff, dist_eff);
+        // destination
+        let (dest_ast, dest_lot) = destination.to_position();
+        assert(dest_ast == process_ast, errors::DIFFERENT_ASTEROIDS);
+        assert((dest_lot != 0) && (process_lot != 0), errors::IN_ORBIT);
         let processor_to_dest = position::hopper_travel_time(process_lot, dest_lot, ast.radius, hopper_eff, dist_eff);
 
+        // loop on origins
+        o = 0;
+        let mut origin_to_processor = 0;
+        loop {
+            if o >= origins.len() { break; }
+
+            let origin = *origins.at(o);
+            let (origin_ast, origin_lot) = origin.to_position();
+            assert(origin_ast == process_ast, errors::DIFFERENT_ASTEROIDS);
+            assert(origin_lot != 0, errors::IN_ORBIT);
+            origin_to_processor = max(origin_to_processor, position::hopper_travel_time(origin_lot, process_lot, ast.radius, hopper_eff, dist_eff));
+
+            o += 1;
+        };
+
         // Total processing time
-        assert(crew_details.asteroid_id() == origin_ast, errors::DIFFERENT_ASTEROIDS);
+        assert(crew_details.asteroid_id() == process_ast, errors::DIFFERENT_ASTEROIDS);
         assert(crew_details.lot_id() != 0, errors::IN_ORBIT);
         let crew_to_processor = position::hopper_travel_time(
             crew_details.lot_id(), process_lot, ast.radius, hopper_eff, dist_eff
@@ -210,13 +298,11 @@ mod ProcessProductsStart {
             components::set::<Ship>(station_ship.path(), station_ship_data);
         }
 
-        self.emit(MaterialProcessingStartedV1 {
+        self.emit(MaterialProcessingStartedV2 {
             processor: processor,
             processor_slot: processor_slot,
             process: process,
-            inputs: inputs,
-            origin: origin,
-            origin_slot: origin_slot,
+            inputs: consumed.span(),
             outputs: outputs,
             destination: destination,
             destination_slot: destination_slot,
