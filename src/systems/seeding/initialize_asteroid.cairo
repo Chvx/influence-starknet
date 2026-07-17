@@ -93,7 +93,8 @@ mod InitializeAsteroid {
             scan_status: scan_status,
             scan_finish_time: 0,
             bonuses: bonuses,
-            abundances: 0
+            abundances: 0,
+            abundances2: 0
         });
 
         // Store the Orbit data
@@ -175,6 +176,7 @@ mod tests {
         assert(celestial_data.scan_finish_time == 0, 'scan finish time');
         assert(celestial_data.bonuses == 0, 'bonuses');
         assert(celestial_data.abundances == 0, 'abundances');
+        assert(celestial_data.abundances2 == 0, 'abundances2');
     }
 
     #[test]

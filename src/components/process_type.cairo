@@ -239,9 +239,11 @@ mod types {
     const METHANE_COMBUSTION: u64 = 245;
     const CARBON_MONOXIDE_ARC_DECOMPOSITION: u64 = 246;
     const HYDROGEN_PROPELLANT_UNBUNDLING: u64 = 247;
+    // ships -> 250-299
     const SHUTTLE_INTEGRATION: u64 = 250;
     const LIGHT_TRANSPORT_INTEGRATION: u64 = 251;
     const HEAVY_TRANSPORT_INTEGRATION: u64 = 252;
+    // buildings -> 300-399
     const WAREHOUSE_CONSTRUCTION: u64 = 300;
     const EXTRACTOR_CONSTRUCTION: u64 = 301;
     const REFINERY_CONSTRUCTION: u64 = 302;
@@ -252,6 +254,12 @@ mod types {
     const MARKETPLACE_CONSTRUCTION: u64 = 307;
     const HABITAT_CONSTRUCTION: u64 = 308;
     const TANK_FARM_CONSTRUCTION: u64 = 309;
+    // more processes
+    const MEMBRANE_BASED_NATURAL_GAS_SEPARATION: u64 = 400;
+    const BLUE_TAENITE_ELECTROLYTIC_REFINING: u64 = 401;
+    const HEAVY_XENOTIME_HOT_ACID_LEACHING: u64 = 402;
+    const RICH_MERRILLITE_HOT_ACID_LEACHING: u64 = 403;
+    const NITROGEN_CLATHRATES8CRYOGENIC_DISTILLATION: u64 = 404;
 }
 
 // Component ----------------------------------------------------------------------------------------------------------

@@ -414,7 +414,8 @@ mod tests {
             scan_status: celestial_statuses::SURFACE_SCANNED,
             scan_finish_time: 0,
             bonuses: 0,
-            abundances: 0 // Will be assigned during additional settlement seeding
+            abundances: 0, // Will be assigned during additional settlement seeding
+            abundances2: 0
         });
 
         components::set::<Orbit>(asteroid.path(), Orbit {
@@ -489,7 +490,8 @@ mod tests {
             scan_status: celestial_statuses::SURFACE_SCANNED,
             scan_finish_time: 0,
             bonuses: 0,
-            abundances: 0 // Will be assigned during additional settlement seeding
+            abundances: 0, // Will be assigned during additional settlement seeding
+            abundances2: 0
         });
 
         components::set::<Orbit>(asteroid.path(), Orbit {

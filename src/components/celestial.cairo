@@ -64,7 +64,8 @@ struct Celestial {
     scan_status: u64,
     scan_finish_time: u64,
     bonuses: u64, // in bonus order either true or false (1st bit is empty, used to indicate scan status)
-    abundances: felt252 // abundances in resource type order in thousandths
+    abundances: felt252, // abundances in resource type order in thousandths; ids 1-11 + 12-22
+    abundances2: felt252 // extension to abundances; ids 246-256 + 257-267
 }
 
 impl CelestialComponent of ComponentTrait<Celestial> {
@@ -99,7 +100,8 @@ impl CelestialImpl of CelestialTrait {
             scan_status: 0,
             scan_finish_time: 0,
             bonuses: 0,
-            abundances: 0
+            abundances: 0,
+            abundances2: 0
         };
     }
 
@@ -117,7 +119,7 @@ impl CelestialImpl of CelestialTrait {
             total_bonus *= f64::FixedTrait::new(4939212390, false); // 15%
         }
 
-        if resource_type > 0 && resource_type <= 8 {
+        if resource_type > 0 && resource_type <= 8 || resource_type == 246 {
             // Volatiles
             let volatile = unpack_u128(bonuses, packed::EXP2_4, packed::EXP2_3);
 
@@ -144,12 +146,12 @@ impl CelestialImpl of CelestialTrait {
             if unpack_u128(bonuses, packed::EXP2_14, packed::EXP2_1) == 1 {
                 total_bonus *= f64::FixedTrait::new(5583457485, false); // 30%
             }
-        } else if resource_type == 16 || resource_type == 17 {
+        } else if resource_type == 16 || resource_type == 17 || resource_type == 248 || resource_type == 249 {
             // Rare Earths
             if unpack_u128(bonuses, packed::EXP2_13, packed::EXP2_1) == 1 {
                 total_bonus *= f64::FixedTrait::new(5583457485, false); // 30%
             }
-        } else if resource_type <= 21 {
+        } else if resource_type <= 21 || resource_type == 247 {
             // Metals
             let metal = unpack_u128(bonuses, packed::EXP2_7, packed::EXP2_3);
 
@@ -167,13 +169,20 @@ impl CelestialImpl of CelestialTrait {
 
     // Packed in 11 * 10 bits in low and high 128 bit words
     fn abundance(self: Celestial, resource_type: u64) -> f64::Fixed {
-        let (low, high) = split_felt252(self.abundances);
+        let (low, high) = if resource_type <= 22 {
+            split_felt252(self.abundances)  // 1-22 range
+        } else {
+            split_felt252(self.abundances2) // 246-267 range
+        };
         let mut res: u128 = 0;
 
-        if resource_type <= 11 {
-            res = unpack_u128(low, math::exp2((resource_type - 1) * 10).try_into().unwrap(), packed::EXP2_10);
+        // Bring the 246-267 range to 1-22 for unpacking
+        let res_type: u64 = if resource_type >= 246 { resource_type - 245 } else { resource_type };
+
+        if res_type <= 11 {
+            res = unpack_u128(low, math::exp2((res_type - 1) * 10).try_into().unwrap(), packed::EXP2_10);
         } else {
-            res = unpack_u128(high, math::exp2((resource_type - 12) * 10).try_into().unwrap(), packed::EXP2_10);
+            res = unpack_u128(high, math::exp2((res_type - 12) * 10).try_into().unwrap(), packed::EXP2_10);
         }
 
         return f64::FixedTrait::new(res.try_into().unwrap() * 4294967, false); // 1/1000 (f64)
@@ -210,6 +219,7 @@ impl StoreCelestial of Store<Celestial> {
     ) -> SyscallResult<Celestial> {
         let combined = Store::<felt252>::read_at_offset(address_domain, base, offset)?;
         let abundances = Store::<felt252>::read_at_offset(address_domain, base, offset + 1)?;
+        let abundances2 = Store::<felt252>::read_at_offset(address_domain, base, offset + 2)?;
         let (low, high) = split_felt252(combined);
 
         let unpacked_radius = unpack_u128(low, packed::EXP2_80, packed::EXP2_48).try_into().unwrap();
@@ -224,7 +234,8 @@ impl StoreCelestial of Store<Celestial> {
             scan_status: unpack_u128(high, packed::EXP2_20, packed::EXP2_4).try_into().unwrap(),
             scan_finish_time: unpack_u128(high, packed::EXP2_24, packed::EXP2_36).try_into().unwrap(),
             bonuses: unpack_u128(high, packed::EXP2_60, packed::EXP2_32).try_into().unwrap(),
-            abundances: abundances
+            abundances: abundances,
+            abundances2: abundances2
         });
     }
 
@@ -247,6 +258,7 @@ impl StoreCelestial of Store<Celestial> {
         let combined = low.into() + high.into() * packed::EXP2_128;
         Store::<felt252>::write_at_offset(address_domain, base, offset, combined).unwrap_syscall();
         Store::<felt252>::write_at_offset(address_domain, base, offset + 1, value.abundances).unwrap_syscall();
+        Store::<felt252>::write_at_offset(address_domain, base, offset + 2, value.abundances2).unwrap_syscall();
         return Result::Ok(());
     }
 
@@ -289,7 +301,8 @@ mod tests {
             scan_status: statuses::SURFACE_SCANNING,
             scan_finish_time: 1234,
             bonuses: 45,
-            abundances: 123435
+            abundances: 123435,
+            abundances2: 212324
         };
 
         Store::<Celestial>::write(0, base, orbit).unwrap_syscall();
@@ -303,15 +316,21 @@ mod tests {
         assert(read_orbit.scan_finish_time == orbit.scan_finish_time, 'scan_finish_time does not match');
         assert(read_orbit.bonuses == orbit.bonuses, 'bonuses does not match');
         assert(read_orbit.abundances == orbit.abundances, 'abundances does not match');
+        assert(read_orbit.abundances2 == orbit.abundances2, 'abundances does not match');
     }
 
     #[test]
     #[available_gas(300000)]
     fn test_abundance() {
         let mut celestial = CelestialTrait::new(1, f128::FixedTrait::ONE(), f64::FixedTrait::ONE());
+
         celestial.abundances = 156802114677168443963923019104558791839170560;
         assert(celestial.abundance(2) == f64::FixedTrait::new(1030792080, false), 'no abundance match'); // 0.24
         assert(celestial.abundance(13) == f64::FixedTrait::new(1932735150, false), 'no abundance match'); // 0.45
+        
+        celestial.abundances2 = 156802114677168443963923019104558791839170560;
+        assert(celestial.abundance(247) == f64::FixedTrait::new(1030792080, false), 'no abundance match'); // 0.24
+        assert(celestial.abundance(258) == f64::FixedTrait::new(1932735150, false), 'no abundance match'); // 0.45
     }
 
     #[test]

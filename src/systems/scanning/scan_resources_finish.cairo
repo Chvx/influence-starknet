@@ -74,8 +74,9 @@ mod ScanResourcesFinish {
         let mut shift: felt252 = 1;
         iter = 0;
 
+        // first batch of 22 abundances
         loop {
-            if iter >= abundances.len() { break; }
+            if iter >= 22 || iter >= abundances.len() { break; }
             if iter == 11 { shift *= 0x40000; } // Shift up 18 bits to high u128 for second half
 
             let abundance = *abundances.at(iter) * 1000 / total;
@@ -86,7 +87,24 @@ mod ScanResourcesFinish {
             iter += 1;
         };
 
+        let mut packed_abundances2: felt252 = 0;
+        shift = 1;
+
+        // second batch of 22 abundances
+        loop {
+            if iter >= abundances.len() { break; }
+            if iter == 33 { shift *= 0x40000; } // Shift up 18 bits to high u128 for second half
+
+            let abundance = *abundances.at(iter) * 1000 / total;
+            scaled_abundances.append(abundance);
+            packed_abundances2 += shift * abundance.into();
+
+            shift *= 0x400;
+            iter += 1;
+        };
+
         celestial_data.abundances = packed_abundances;
+        celestial_data.abundances2 = packed_abundances2;
         celestial_data.scan_status = statuses::RESOURCE_SCANNED;
         celestial_data.scan_finish_time = 0;
         components::set::<Celestial>(asteroid.path(), celestial_data);
@@ -110,7 +128,7 @@ mod ScanResourcesFinish {
                 (product_types::SULFUR_DIOXIDE, 0, 0),
                 (product_types::CARBON_DIOXIDE, 0, 909),
                 (product_types::CARBON_MONOXIDE, 0, 642),
-                (product_types::METHANE, 0, 200),
+                (product_types::METHANE, 0, 0),
                 (product_types::APATITE, 0, 1465),
                 (product_types::BITUMEN, 0, 670),
                 (product_types::CALCITE, 0, 1114),
@@ -124,7 +142,12 @@ mod ScanResourcesFinish {
                 (product_types::GRAPHITE, 0, 0),
                 (product_types::TAENITE, 0, 0),
                 (product_types::TROILITE, 0, 0),
-                (product_types::URANINITE, 0, 0)
+                (product_types::URANINITE, 0, 0),
+                (product_types::NATURAL_GAS, 0, 200),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -151,7 +174,12 @@ mod ScanResourcesFinish {
                 (product_types::GRAPHITE, 0, 200),
                 (product_types::TAENITE, 0, 3754),
                 (product_types::TROILITE, 0, 547),
-                (product_types::URANINITE, 0, 200)
+                (product_types::URANINITE, 0, 200),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -178,7 +206,12 @@ mod ScanResourcesFinish {
                 (product_types::GRAPHITE, 0, 0),
                 (product_types::TAENITE, 0, 0),
                 (product_types::TROILITE, 0, 0),
-                (product_types::URANINITE, 0, 0)
+                (product_types::URANINITE, 0, 0),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -205,7 +238,12 @@ mod ScanResourcesFinish {
                 (product_types::GRAPHITE, 0, 0),
                 (product_types::TAENITE, 0, 0),
                 (product_types::TROILITE, 0, 0),
-                (product_types::URANINITE, 0, 0)
+                (product_types::URANINITE, 0, 0),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -232,7 +270,12 @@ mod ScanResourcesFinish {
                 (product_types::GRAPHITE, 0, 200),
                 (product_types::TAENITE, 0, 2435),
                 (product_types::TROILITE, 0, 354),
-                (product_types::URANINITE, 0, 200)
+                (product_types::URANINITE, 0, 200),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -259,7 +302,12 @@ mod ScanResourcesFinish {
                 (product_types::GRAPHITE, 0, 0),
                 (product_types::TAENITE, 0, 0),
                 (product_types::TROILITE, 0, 0),
-                (product_types::URANINITE, 0, 0)
+                (product_types::URANINITE, 0, 0),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -280,13 +328,18 @@ mod ScanResourcesFinish {
                 (product_types::OLIVINE, 0, 1848),
                 (product_types::PYROXENE, 0, 3213),
                 (product_types::COFFINITE, 0, 1974),
-                (product_types::MERRILLITE, 0, 200),
-                (product_types::XENOTIME, 0, 942),
+                (product_types::MERRILLITE, 0, 0),
+                (product_types::XENOTIME, 0, 0),
                 (product_types::RHABDITE, 0, 0),
                 (product_types::GRAPHITE, 0, 0),
                 (product_types::TAENITE, 0, 0),
                 (product_types::TROILITE, 0, 0),
-                (product_types::URANINITE, 0, 0)
+                (product_types::URANINITE, 0, 0),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 942),
+				(product_types::RICH_MERRILLITE, 0, 200),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -313,7 +366,12 @@ mod ScanResourcesFinish {
                 (product_types::GRAPHITE, 0, 200),
                 (product_types::TAENITE, 0, 3768),
                 (product_types::TROILITE, 0, 549),
-                (product_types::URANINITE, 0, 200)
+                (product_types::URANINITE, 0, 200),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -340,7 +398,12 @@ mod ScanResourcesFinish {
                 (product_types::GRAPHITE, 0, 0),
                 (product_types::TAENITE, 0, 0),
                 (product_types::TROILITE, 0, 0),
-                (product_types::URANINITE, 0, 0)
+                (product_types::URANINITE, 0, 0),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 
@@ -349,7 +412,7 @@ mod ScanResourcesFinish {
                 (product_types::WATER, 0, 200),
                 (product_types::HYDROGEN, 0, 5000),
                 (product_types::AMMONIA, 0, 723),
-                (product_types::NITROGEN, 0, 200),
+                (product_types::NITROGEN, 0, 0),
                 (product_types::SULFUR_DIOXIDE, 0, 3277),
                 (product_types::CARBON_DIOXIDE, 0, 200),
                 (product_types::CARBON_MONOXIDE, 0, 200),
@@ -368,6 +431,11 @@ mod ScanResourcesFinish {
                 (product_types::TAENITE, 0, 0),
                 (product_types::TROILITE, 0, 0),
                 (product_types::URANINITE, 0, 0),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 0),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 200),
             ].span();
         }
 
@@ -392,9 +460,14 @@ mod ScanResourcesFinish {
                 (product_types::XENOTIME, 0, 0),
                 (product_types::RHABDITE, 0, 1441),
                 (product_types::GRAPHITE, 0, 534),
-                (product_types::TAENITE, 0, 5000),
+                (product_types::TAENITE, 0, 0),
                 (product_types::TROILITE, 0, 2558),
                 (product_types::URANINITE, 0, 467),
+                (product_types::NATURAL_GAS, 0, 0),
+				(product_types::BLUE_TAENITE, 0, 5000),
+				(product_types::HEAVY_XENOTIME, 0, 0),
+				(product_types::RICH_MERRILLITE, 0, 0),
+				(product_types::NITROGEN_CLATHRATES, 0, 0),
             ].span();
         }
 

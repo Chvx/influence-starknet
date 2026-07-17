@@ -253,6 +253,20 @@ mod types {
     const POWER_MODULE: u64 = 243;
     const THERMAL_MODULE: u64 = 244;
     const PROPULSION_MODULE: u64 = 245;
+    const NATURAL_GAS: u64 = 246;
+    const BLUE_TAENITE: u64 = 247;
+    const HEAVY_XENOTIME: u64 = 248;
+    const RICH_MERRILLITE: u64 = 249;
+    const NITROGEN_CLATHRATES: u64 = 250;
+    // reserve until 267 for more new raws (abundance packing logic)
+    const HELIUM: u64 = 268;
+    const ARGON: u64 = 269;
+    const KRYPTON: u64 = 270;
+    const XENON: u64 = 271;
+    const DYSPROSIUM: u64 = 272;
+    const YTTRIUM: u64 = 273;
+    const CERIUM: u64 = 274;
+    const LANTHANUM: u64 = 275;
 }
 
 // Component ----------------------------------------------------------------------------------------------------------
